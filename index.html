@@ -25,13 +25,11 @@
 <button onclick="signup()" class="bg-green-500 text-white px-4 py-2 rounded w-full mb-2">Sign Up</button>
 <button onclick="login()" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2">Login</button>
 
-<p id="error" class="text-red-500 text-sm mt-2"></p>
-
-<button onclick="fillWorker()" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2">
+<button onclick="fillWorker()" class="bg-gray-500 text-white px-4 py-2 rounded w-full mb-2">
 Use Worker Demo
 </button>
 
-<button onclick="fillEmployer()" class="bg-gray-700 text-white px-4 py-2 rounded w-full mt-2">
+<button onclick="fillEmployer()" class="bg-gray-700 text-white px-4 py-2 rounded w-full">
 Use Employer Demo
 </button>
 
@@ -63,96 +61,86 @@ Use Employer Demo
 
 </div>
 
-<script type="module">
+<script>
 
-let auth, db;
-let demoMode = false;
+// Fake database
+let users = [
+{email: "worker@test.com", password: "123456", role: "worker"},
+{email: "employer@test.com", password: "123456", role: "employer"}
+];
 
-// TRY FIREBASE
-try {
+let jobs = [];
 
-const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+let currentUser = null;
 
-const { 
-getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged 
-} = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
 
-const { 
-getFirestore, doc, setDoc, getDoc, addDoc, collection, getDocs 
-} = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+// AUTH
+function signup(){
 
-const firebaseConfig = {
-apiKey: "PASTE_YOUR_REAL_KEY",
-authDomain: "PASTE",
-projectId: "PASTE",
-storageBucket: "PASTE",
-messagingSenderId: "PASTE",
-appId: "PASTE"
-};
-
-const app = initializeApp(firebaseConfig);
-auth = getAuth(app);
-db = getFirestore(app);
-
-// AUTH STATE
-onAuthStateChanged(auth, async (user)=>{
-if(user){
-showApp();
-}else{
-showAuth();
-}
-});
-
-window.signup = async function(){
-try{
 const email = val("email");
 const password = val("password");
 const role = val("role");
 
-const user = await createUserWithEmailAndPassword(auth,email,password);
+users.push({email, password, role});
 
-await setDoc(doc(db,"users",user.user.uid),{
-role,
-createdAt: Date.now()
-});
+alert("Account created (demo)");
 
-}catch(e){
-showError(e.message);
-}
 }
 
-window.login = async function(){
-try{
-await signInWithEmailAndPassword(auth,val("email"),val("password"));
-}catch(e){
-showError(e.message);
-}
+function login(){
+
+const email = val("email");
+const password = val("password");
+
+const user = users.find(u => u.email === email && u.password === password);
+
+if(user){
+currentUser = user;
+showApp();
+}else{
+alert("Invalid login");
 }
 
-window.logout = ()=>signOut(auth);
+}
 
-window.postJob = async function(){
-try{
-await addDoc(collection(db,"jobs"),{
+function logout(){
+currentUser = null;
+showAuth();
+}
+
+
+// DEMO BUTTONS
+function fillWorker(){
+setVal("email","worker@test.com");
+setVal("password","123456");
+}
+
+function fillEmployer(){
+setVal("email","employer@test.com");
+setVal("password","123456");
+}
+
+
+// JOBS
+function postJob(){
+
+jobs.push({
 title: val("title"),
 description: val("description"),
 phone: val("phone"),
 createdAt: Date.now()
 });
+
 loadJobs();
-}catch(e){
-showError(e.message);
-}
+
 }
 
-async function loadJobs(){
+function loadJobs(){
+
 const jobsDiv = document.getElementById("jobs");
-jobsDiv.innerHTML="";
+jobsDiv.innerHTML = "";
 
-const snapshot = await getDocs(collection(db,"jobs"));
-
-snapshot.forEach(docu=>{
-const job = docu.data();
+jobs.forEach(job => {
 
 if(Date.now() - job.createdAt < 604800000){
 
@@ -160,106 +148,42 @@ jobsDiv.innerHTML += `
 <div class="border p-3 mb-2">
 <h4 class="font-bold">${job.title}</h4>
 <p>${job.description}</p>
-<a href="tel:${job.phone}" class="text-blue-500">Call</a>
-</div>`;
+<a href="tel:${job.phone}" class="text-blue-500">Call Employer</a>
+</div>
+`;
+
 }
+
 });
-}
-
-} catch (e) {
-
-console.log("Firebase failed → Demo mode");
-
-demoMode = true;
 
 }
 
-// DEMO MODE (WORKS WITHOUT FIREBASE)
-if(demoMode){
 
-let currentUser = null;
-let jobs = [];
-
-window.signup = ()=>{
-currentUser = {role: val("role")};
-showApp();
-};
-
-window.login = ()=>{
-currentUser = {role: val("email").includes("employer") ? "employer":"worker"};
-showApp();
-};
-
-window.logout = ()=>{
-currentUser = null;
-showAuth();
-};
-
-window.postJob = ()=>{
-jobs.push({
-title: val("title"),
-description: val("description"),
-phone: val("phone"),
-createdAt: Date.now()
-});
-loadJobs();
-};
-
-function loadJobs(){
-const jobsDiv = document.getElementById("jobs");
-jobsDiv.innerHTML="";
-
-jobs.forEach(job=>{
-jobsDiv.innerHTML += `
-<div class="border p-3 mb-2">
-<h4 class="font-bold">${job.title}</h4>
-<p>${job.description}</p>
-<p>${job.phone}</p>
-</div>`;
-});
-}
-
-}
-
-// UI HELPERS
-function val(id){ return document.getElementById(id).value; }
-
-function showError(msg){
-document.getElementById("error").innerText = msg;
-}
-
+// UI
 function showApp(){
+
 document.getElementById("authSection").classList.add("hidden");
 document.getElementById("appSection").classList.remove("hidden");
 
-if(!demoMode){
-getDoc(doc(db,"users",auth.currentUser.uid)).then(docSnap=>{
-if(docSnap.data().role==="employer"){
+if(currentUser.role === "employer"){
 document.getElementById("employerPanel").classList.remove("hidden");
 }
-});
-}else{
-if(currentUser.role==="employer"){
-document.getElementById("employerPanel").classList.remove("hidden");
-}
-}
+
+loadJobs();
+
 }
 
 function showAuth(){
+
 document.getElementById("authSection").classList.remove("hidden");
 document.getElementById("appSection").classList.add("hidden");
+
 }
 
-// DEMO BUTTONS
-window.fillWorker = ()=>{
-document.getElementById("email").value="worker@test.com";
-document.getElementById("password").value="123456";
-};
 
-window.fillEmployer = ()=>{
-document.getElementById("email").value="employer@test.com";
-document.getElementById("password").value="123456";
-};
+// HELPERS
+function val(id){ return document.getElementById(id).value; }
+function setVal(id,v){ document.getElementById(id).value = v; }
 
 </script>
 
