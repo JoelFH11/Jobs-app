@@ -3,9 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Red Trabajo</title>
-
 <script src="https://cdn.tailwindcss.com"></script>
-
 </head>
 
 <body class="bg-gray-100 p-6">
@@ -27,12 +25,13 @@
 <button onclick="signup()" class="bg-green-500 text-white px-4 py-2 rounded w-full mb-2">Sign Up</button>
 <button onclick="login()" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2">Login</button>
 
-<!-- Demo buttons -->
-<button onclick="fillWorker()" class="bg-gray-500 text-white px-4 py-2 rounded w-full mb-2">
+<p id="error" class="text-red-500 text-sm mt-2"></p>
+
+<button onclick="fillWorker()" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2">
 Use Worker Demo
 </button>
 
-<button onclick="fillEmployer()" class="bg-gray-700 text-white px-4 py-2 rounded w-full">
+<button onclick="fillEmployer()" class="bg-gray-700 text-white px-4 py-2 rounded w-full mt-2">
 Use Employer Demo
 </button>
 
@@ -58,241 +57,209 @@ Use Employer Demo
 </div>
 
 <div class="bg-white p-4 rounded shadow">
-
 <h3 class="font-bold mb-3">Available Jobs</h3>
-
 <div id="jobs"></div>
-
 </div>
 
 </div>
 
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+let auth, db;
+let demoMode = false;
 
-import { 
-getAuth, 
-createUserWithEmailAndPassword, 
-signInWithEmailAndPassword, 
-signOut, 
-onAuthStateChanged,
-fetchSignInMethodsForEmail
-}
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+// TRY FIREBASE
+try {
 
-import { 
-getFirestore, 
-doc, 
-setDoc, 
-getDoc, 
-addDoc, 
-collection, 
-getDocs 
-}
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+
+const { 
+getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged 
+} = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+
+const { 
+getFirestore, doc, setDoc, getDoc, addDoc, collection, getDocs 
+} = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
 const firebaseConfig = {
-
-apiKey: "YOUR_API_KEY",
-authDomain: "YOUR_DOMAIN",
-projectId: "YOUR_PROJECT_ID",
-storageBucket: "YOUR_BUCKET",
-messagingSenderId: "YOUR_ID",
-appId: "YOUR_APP_ID"
-
+apiKey: "PASTE_YOUR_REAL_KEY",
+authDomain: "PASTE",
+projectId: "PASTE",
+storageBucket: "PASTE",
+messagingSenderId: "PASTE",
+appId: "PASTE"
 };
 
 const app = initializeApp(firebaseConfig);
-
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-
-// 🔥 CREATE DEMO ACCOUNTS
-async function createDemoAccounts(){
-
-try {
-
-// Worker
-const workerEmail = "worker@test.com";
-const workerPassword = "123456";
-
-const workerMethods = await fetchSignInMethodsForEmail(auth, workerEmail);
-
-if(workerMethods.length === 0){
-
-const userCredential = await createUserWithEmailAndPassword(auth, workerEmail, workerPassword);
-
-await setDoc(doc(db,"users",userCredential.user.uid),{
-role: "worker",
-createdAt: Date.now()
-});
-
-await signOut(auth);
-}
-
-// Employer
-const employerEmail = "employer@test.com";
-const employerPassword = "123456";
-
-const employerMethods = await fetchSignInMethodsForEmail(auth, employerEmail);
-
-if(employerMethods.length === 0){
-
-const userCredential = await createUserWithEmailAndPassword(auth, employerEmail, employerPassword);
-
-await setDoc(doc(db,"users",userCredential.user.uid),{
-role: "employer",
-createdAt: Date.now()
-});
-
-await signOut(auth);
-}
-
-}catch(e){
-console.log("Demo account setup:", e.message);
-}
-
-}
-
-// Run on load
-createDemoAccounts();
-
-
-// AUTH FUNCTIONS
-window.signup = async function(){
-
-const email = document.getElementById("email").value;
-const password = document.getElementById("password").value;
-const role = document.getElementById("role").value;
-
-const userCredential = await createUserWithEmailAndPassword(auth,email,password);
-
-await setDoc(doc(db,"users",userCredential.user.uid),{
-role: role,
-createdAt: Date.now()
-});
-
-alert("Account created");
-
-}
-
-window.login = async function(){
-
-const email = document.getElementById("email").value;
-const password = document.getElementById("password").value;
-
-await signInWithEmailAndPassword(auth,email,password);
-
-}
-
-window.logout = function(){
-signOut(auth);
-}
-
-
-// DEMO AUTO-FILL
-window.fillWorker = function(){
-document.getElementById("email").value = "worker@test.com";
-document.getElementById("password").value = "123456";
-}
-
-window.fillEmployer = function(){
-document.getElementById("email").value = "employer@test.com";
-document.getElementById("password").value = "123456";
-}
-
+auth = getAuth(app);
+db = getFirestore(app);
 
 // AUTH STATE
 onAuthStateChanged(auth, async (user)=>{
-
 if(user){
-
-document.getElementById("authSection").classList.add("hidden");
-document.getElementById("appSection").classList.remove("hidden");
-
-const userDoc = await getDoc(doc(db,"users",user.uid));
-const role = userDoc.data().role;
-
-if(role === "employer"){
-document.getElementById("employerPanel").classList.remove("hidden");
-}
-
-loadJobs();
-
+showApp();
 }else{
-
-document.getElementById("authSection").classList.remove("hidden");
-document.getElementById("appSection").classList.add("hidden");
-
+showAuth();
 }
-
 });
 
+window.signup = async function(){
+try{
+const email = val("email");
+const password = val("password");
+const role = val("role");
 
-// POST JOB
+const user = await createUserWithEmailAndPassword(auth,email,password);
+
+await setDoc(doc(db,"users",user.user.uid),{
+role,
+createdAt: Date.now()
+});
+
+}catch(e){
+showError(e.message);
+}
+}
+
+window.login = async function(){
+try{
+await signInWithEmailAndPassword(auth,val("email"),val("password"));
+}catch(e){
+showError(e.message);
+}
+}
+
+window.logout = ()=>signOut(auth);
+
 window.postJob = async function(){
-
-navigator.geolocation.getCurrentPosition(async(position)=>{
-
-const lat = position.coords.latitude;
-const lng = position.coords.longitude;
-
-const title = document.getElementById("title").value;
-const description = document.getElementById("description").value;
-const phone = document.getElementById("phone").value;
-
+try{
 await addDoc(collection(db,"jobs"),{
-title,
-description,
-phone,
-createdAt: Date.now(),
-location:{lat,lng}
+title: val("title"),
+description: val("description"),
+phone: val("phone"),
+createdAt: Date.now()
 });
-
-alert("Job posted");
-
 loadJobs();
-
-});
-
+}catch(e){
+showError(e.message);
+}
 }
 
-
-// LOAD JOBS
 async function loadJobs(){
-
 const jobsDiv = document.getElementById("jobs");
 jobsDiv.innerHTML="";
 
 const snapshot = await getDocs(collection(db,"jobs"));
 
-snapshot.forEach((docu)=>{
-
+snapshot.forEach(docu=>{
 const job = docu.data();
 
-const now = Date.now();
+if(Date.now() - job.createdAt < 604800000){
 
-if(now - job.createdAt < 604800000){
-
-const card = document.createElement("div");
-
-card.className="border p-3 mb-2";
-
-card.innerHTML = `
+jobsDiv.innerHTML += `
+<div class="border p-3 mb-2">
 <h4 class="font-bold">${job.title}</h4>
 <p>${job.description}</p>
-<a class="text-blue-500" href="tel:${job.phone}">Call Employer</a>
-`;
-
-jobsDiv.appendChild(card);
-
+<a href="tel:${job.phone}" class="text-blue-500">Call</a>
+</div>`;
 }
-
 });
+}
+
+} catch (e) {
+
+console.log("Firebase failed → Demo mode");
+
+demoMode = true;
 
 }
+
+// DEMO MODE (WORKS WITHOUT FIREBASE)
+if(demoMode){
+
+let currentUser = null;
+let jobs = [];
+
+window.signup = ()=>{
+currentUser = {role: val("role")};
+showApp();
+};
+
+window.login = ()=>{
+currentUser = {role: val("email").includes("employer") ? "employer":"worker"};
+showApp();
+};
+
+window.logout = ()=>{
+currentUser = null;
+showAuth();
+};
+
+window.postJob = ()=>{
+jobs.push({
+title: val("title"),
+description: val("description"),
+phone: val("phone"),
+createdAt: Date.now()
+});
+loadJobs();
+};
+
+function loadJobs(){
+const jobsDiv = document.getElementById("jobs");
+jobsDiv.innerHTML="";
+
+jobs.forEach(job=>{
+jobsDiv.innerHTML += `
+<div class="border p-3 mb-2">
+<h4 class="font-bold">${job.title}</h4>
+<p>${job.description}</p>
+<p>${job.phone}</p>
+</div>`;
+});
+}
+
+}
+
+// UI HELPERS
+function val(id){ return document.getElementById(id).value; }
+
+function showError(msg){
+document.getElementById("error").innerText = msg;
+}
+
+function showApp(){
+document.getElementById("authSection").classList.add("hidden");
+document.getElementById("appSection").classList.remove("hidden");
+
+if(!demoMode){
+getDoc(doc(db,"users",auth.currentUser.uid)).then(docSnap=>{
+if(docSnap.data().role==="employer"){
+document.getElementById("employerPanel").classList.remove("hidden");
+}
+});
+}else{
+if(currentUser.role==="employer"){
+document.getElementById("employerPanel").classList.remove("hidden");
+}
+}
+}
+
+function showAuth(){
+document.getElementById("authSection").classList.remove("hidden");
+document.getElementById("appSection").classList.add("hidden");
+}
+
+// DEMO BUTTONS
+window.fillWorker = ()=>{
+document.getElementById("email").value="worker@test.com";
+document.getElementById("password").value="123456";
+};
+
+window.fillEmployer = ()=>{
+document.getElementById("email").value="employer@test.com";
+document.getElementById("password").value="123456";
+};
 
 </script>
 
