@@ -25,7 +25,16 @@
 </select>
 
 <button onclick="signup()" class="bg-green-500 text-white px-4 py-2 rounded w-full mb-2">Sign Up</button>
-<button onclick="login()" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Login</button>
+<button onclick="login()" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2">Login</button>
+
+<!-- Demo buttons -->
+<button onclick="fillWorker()" class="bg-gray-500 text-white px-4 py-2 rounded w-full mb-2">
+Use Worker Demo
+</button>
+
+<button onclick="fillEmployer()" class="bg-gray-700 text-white px-4 py-2 rounded w-full">
+Use Employer Demo
+</button>
 
 </div>
 
@@ -62,12 +71,25 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
-
+import { 
+getAuth, 
+createUserWithEmailAndPassword, 
+signInWithEmailAndPassword, 
+signOut, 
+onAuthStateChanged,
+fetchSignInMethodsForEmail
+}
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-import { getFirestore, doc, setDoc, getDoc, addDoc, collection, getDocs }
-
+import { 
+getFirestore, 
+doc, 
+setDoc, 
+getDoc, 
+addDoc, 
+collection, 
+getDocs 
+}
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -86,6 +108,59 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+
+// 🔥 CREATE DEMO ACCOUNTS
+async function createDemoAccounts(){
+
+try {
+
+// Worker
+const workerEmail = "worker@test.com";
+const workerPassword = "123456";
+
+const workerMethods = await fetchSignInMethodsForEmail(auth, workerEmail);
+
+if(workerMethods.length === 0){
+
+const userCredential = await createUserWithEmailAndPassword(auth, workerEmail, workerPassword);
+
+await setDoc(doc(db,"users",userCredential.user.uid),{
+role: "worker",
+createdAt: Date.now()
+});
+
+await signOut(auth);
+}
+
+// Employer
+const employerEmail = "employer@test.com";
+const employerPassword = "123456";
+
+const employerMethods = await fetchSignInMethodsForEmail(auth, employerEmail);
+
+if(employerMethods.length === 0){
+
+const userCredential = await createUserWithEmailAndPassword(auth, employerEmail, employerPassword);
+
+await setDoc(doc(db,"users",userCredential.user.uid),{
+role: "employer",
+createdAt: Date.now()
+});
+
+await signOut(auth);
+}
+
+}catch(e){
+console.log("Demo account setup:", e.message);
+}
+
+}
+
+// Run on load
+createDemoAccounts();
+
+
+// AUTH FUNCTIONS
 window.signup = async function(){
 
 const email = document.getElementById("email").value;
@@ -95,10 +170,8 @@ const role = document.getElementById("role").value;
 const userCredential = await createUserWithEmailAndPassword(auth,email,password);
 
 await setDoc(doc(db,"users",userCredential.user.uid),{
-
 role: role,
 createdAt: Date.now()
-
 });
 
 alert("Account created");
@@ -115,11 +188,23 @@ await signInWithEmailAndPassword(auth,email,password);
 }
 
 window.logout = function(){
-
 signOut(auth);
-
 }
 
+
+// DEMO AUTO-FILL
+window.fillWorker = function(){
+document.getElementById("email").value = "worker@test.com";
+document.getElementById("password").value = "123456";
+}
+
+window.fillEmployer = function(){
+document.getElementById("email").value = "employer@test.com";
+document.getElementById("password").value = "123456";
+}
+
+
+// AUTH STATE
 onAuthStateChanged(auth, async (user)=>{
 
 if(user){
@@ -131,9 +216,7 @@ const userDoc = await getDoc(doc(db,"users",user.uid));
 const role = userDoc.data().role;
 
 if(role === "employer"){
-
 document.getElementById("employerPanel").classList.remove("hidden");
-
 }
 
 loadJobs();
@@ -147,6 +230,8 @@ document.getElementById("appSection").classList.add("hidden");
 
 });
 
+
+// POST JOB
 window.postJob = async function(){
 
 navigator.geolocation.getCurrentPosition(async(position)=>{
@@ -159,13 +244,11 @@ const description = document.getElementById("description").value;
 const phone = document.getElementById("phone").value;
 
 await addDoc(collection(db,"jobs"),{
-
 title,
 description,
 phone,
 createdAt: Date.now(),
 location:{lat,lng}
-
 });
 
 alert("Job posted");
@@ -176,6 +259,8 @@ loadJobs();
 
 }
 
+
+// LOAD JOBS
 async function loadJobs(){
 
 const jobsDiv = document.getElementById("jobs");
